@@ -8,11 +8,23 @@ const { jobs } = require('./jobs.seed');
 const { resources } = require('./resources.seed');
 
 async function run() {
-  if (!process.env.MONGODB_URI) {
+  let uri = process.env.MONGODB_URI;
+  if (!uri) {
     console.error('MONGODB_URI not set. Create .env file.');
     process.exit(1);
   }
-  await mongoose.connect(process.env.MONGODB_URI);
+
+  const hasPlaceholders =
+    uri.includes('USER') ||
+    uri.includes('PASSWORD') ||
+    uri.includes('cluster.mongodb.net');
+
+  if (hasPlaceholders && process.env.NODE_ENV !== 'production') {
+    console.warn('MONGODB_URI appears to be a template. Falling back to local MongoDB.');
+    uri = process.env.MONGODB_LOCAL_URI || 'mongodb://127.0.0.1:27017/nextcareer';
+  }
+
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
 
   await Job.deleteMany({});
   await Job.insertMany(jobs);
